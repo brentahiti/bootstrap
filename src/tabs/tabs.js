@@ -7,24 +7,24 @@ angular.module('ui.bootstrap.tabs', [])
 
   ctrl.select = function(index, evt) {
     if (!destroyed) {
-      var previousIndex = findTabIndex(oldIndex);
+      var previousIndex = findTabByIndex(oldIndex);
       var previousSelected = ctrl.tabs[previousIndex];
       if (previousSelected) {
-        previousSelected.tab.onDeselect({
+        previousSelected.onDeselect({
           $event: evt
         });
         if (evt && evt.isDefaultPrevented()) {
           return;
         }
-        previousSelected.tab.active = false;
+        previousSelected.active = false;
       }
 
       var selected = ctrl.tabs[index];
       if (selected) {
-        selected.tab.onSelect({
+        selected.onSelect({
           $event: evt
         });
-        selected.tab.active = true;
+        selected.active = true;
         ctrl.active = selected.index;
         oldIndex = selected.index;
       } else if (!selected && angular.isNumber(oldIndex)) {
@@ -35,10 +35,7 @@ angular.module('ui.bootstrap.tabs', [])
   };
 
   ctrl.addTab = function addTab(tab) {
-    ctrl.tabs.push({
-      tab: tab,
-      index: tab.index
-    });
+    ctrl.tabs.push(tab);
     ctrl.tabs.sort(function(t1, t2) {
       if (t1.index > t2.index) {
         return 1;
@@ -52,21 +49,15 @@ angular.module('ui.bootstrap.tabs', [])
     });
 
     if (tab.index === ctrl.active || !angular.isNumber(ctrl.active) && ctrl.tabs.length === 1) {
-      var newActiveIndex = findTabIndex(tab.index);
+      var newActiveIndex = findTabByIndex(tab.index);
       ctrl.select(newActiveIndex);
     }
   };
 
   ctrl.removeTab = function removeTab(tab) {
-    var index;
-    for (var i = 0; i < ctrl.tabs.length; i++) {
-      if (ctrl.tabs[i].tab === tab) {
-        index = i;
-        break;
-      }
-    }
+    var index = ctrl.findTabIndex(tab);
 
-    if (ctrl.tabs[index].index === ctrl.active) {
+    if (tab.index === ctrl.active) {
       var newActiveTabIndex = index === ctrl.tabs.length - 1 ?
         index - 1 : index + 1 % ctrl.tabs.length;
       ctrl.select(newActiveTabIndex);
@@ -75,9 +66,35 @@ angular.module('ui.bootstrap.tabs', [])
     ctrl.tabs.splice(index, 1);
   };
 
+  ctrl.updateActiveIndex = function updateActiveIndex(tab) {
+    if (tab.active) {
+      ctrl.active = tab.index;
+      oldIndex = tab.index;
+      ctrl.tabs.sort(function(t1, t2) {
+        if (t1.index > t2.index) {
+          return 1;
+        }
+
+        if (t1.index < t2.index) {
+          return -1;
+        }
+
+        return 0;
+      });
+    }
+  };
+
+  ctrl.findTabIndex = function findTabIndex(tab) {
+    for (var i = 0; i < ctrl.tabs.length; i++) {
+      if (ctrl.tabs[i] === tab) {
+        return i;
+      }
+    }
+  };
+
   $scope.$watch('tabset.active', function(val) {
     if (angular.isNumber(val) && val !== oldIndex) {
-      ctrl.select(findTabIndex(val));
+      ctrl.select(findTabByIndex(val));
     }
   });
 
@@ -86,7 +103,7 @@ angular.module('ui.bootstrap.tabs', [])
     destroyed = true;
   });
 
-  function findTabIndex(index) {
+  function findTabByIndex(index) {
     for (var i = 0; i < ctrl.tabs.length; i++) {
       if (ctrl.tabs[i].index === index) {
         return i;
@@ -155,6 +172,11 @@ angular.module('ui.bootstrap.tabs', [])
         } else {
           scope.index = 0;
         }
+      } else {
+        // watch when index is ng-repeat $index
+        scope.$parent.$watch($parse(attrs.index), function() {
+          tabsetCtrl.updateActiveIndex(scope);
+        });
       }
 
       if (angular.isUndefined(attrs.classes)) {
@@ -163,15 +185,7 @@ angular.module('ui.bootstrap.tabs', [])
 
       scope.select = function(evt) {
         if (!scope.disabled) {
-          var index;
-          for (var i = 0; i < tabsetCtrl.tabs.length; i++) {
-            if (tabsetCtrl.tabs[i].tab === scope) {
-              index = i;
-              break;
-            }
-          }
-
-          tabsetCtrl.select(index, evt);
+          tabsetCtrl.select(tabsetCtrl.findTabIndex(scope), evt);
         }
       };
 
@@ -207,7 +221,7 @@ angular.module('ui.bootstrap.tabs', [])
     restrict: 'A',
     require: '^uibTabset',
     link: function(scope, elm, attrs) {
-      var tab = scope.$eval(attrs.uibTabContentTransclude).tab;
+      var tab = scope.$eval(attrs.uibTabContentTransclude);
 
       //Now our tab is ready to be transcluded: both the tab heading area
       //and the tab content area are loaded.  Transclude 'em both.

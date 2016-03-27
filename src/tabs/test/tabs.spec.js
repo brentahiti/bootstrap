@@ -357,18 +357,18 @@ describe('tabs', function() {
     }
 
     function expectTabActive(activeTab) {
-      var _titles = titles();
       angular.forEach(scope.tabs, function(tab, i) {
         if (activeTab === tab) {
           expect(scope.active).toBe(tab.index);
           //It should only call select ONCE for each select
           expect(tab.select).toHaveBeenCalled();
-          expect(_titles.eq(i)).toHaveClass('active');
+          expect(titles().eq(i)).toHaveClass('active');
           expect(contents().eq(i).text().trim()).toBe('content ' + i);
           expect(contents().eq(i)).toHaveClass('active');
         } else {
           expect(scope.active).not.toBe(tab.index);
-          expect(_titles.eq(i)).not.toHaveClass('active');
+          expect(titles().eq(i)).not.toHaveClass('active');
+          expect(contents().eq(i)).not.toHaveClass('active');
         }
       });
     }
@@ -424,6 +424,50 @@ describe('tabs', function() {
       scope.$apply();
 
       expect(scope.select.calls.count()).toBe(1);
+    });
+
+    it('should be able to handle $index as an index', function() {
+      function expectTabIndexActive(index) {
+        angular.forEach(scope.tabs, function(_, i) {
+          if (index === i) {
+            expect(scope.active).toBe(i);
+            expect(titles().eq(i)).toHaveClass('active');
+            expect(contents().eq(i).text().trim()).toBe('content ' + i);
+            expect(contents().eq(i)).toHaveClass('active');
+          } else {
+            expect(scope.active).not.toBe(i);
+            expect(titles().eq(i)).not.toHaveClass('active');
+            expect(contents().eq(i)).not.toHaveClass('active');
+          }
+        });
+      }
+
+      scope = $rootScope.$new();
+      scope.tabs = [1, 3, 5, 7];
+      scope.active = 0;
+      elm = $compile([
+        '<uib-tabset active="active">',
+        '  <uib-tab index="$index" ng-repeat="t in tabs">',
+        '    <uib-tab-heading><b>heading</b> {{t}}</uib-tab-heading>',
+        '    content {{$index}}',
+        '  </uib-tab>',
+        '</uib-tabset>'
+      ].join('\n'))(scope);
+      scope.$apply();
+
+      // remove 1 and 5 tabs
+      scope.tabs.splice(0, 1);
+      scope.tabs.splice(1, 1);
+      scope.$apply();
+      // first new tab should be selected
+      expectTabIndexActive(0);
+      // add back 5
+      scope.tabs.splice(1, 0, 5);
+      scope.$apply();
+      expectTabIndexActive(0);
+      scope.tabs.splice(0, 0, 1);
+      scope.$apply();
+      expectTabIndexActive(1);
     });
   });
 
@@ -558,12 +602,7 @@ describe('tabs', function() {
 
     describe('select', function() {
       it('should mark given tab selected', function() {
-        ctrl.tabs = [
-          {
-            tab: mockTab(0),
-            index: 0
-          }
-        ];
+        ctrl.tabs = [mockTab(0)];
 
         ctrl.select(0);
         expect(ctrl.active).toBe(0);
@@ -596,24 +635,10 @@ describe('tabs', function() {
         expect(ctrl.tabs).toEqual([]);
 
         ctrl.addTab(tab1);
-        expect(ctrl.tabs).toEqual([
-          {
-            tab: tab1,
-            index: 1
-          }
-        ]);
+        expect(ctrl.tabs).toEqual([tab1]);
 
         ctrl.addTab(tab2);
-        expect(ctrl.tabs).toEqual([
-          {
-            tab: tab1,
-            index: 1
-          },
-          {
-            tab: tab2,
-            index: 2
-          }
-        ]);
+        expect(ctrl.tabs).toEqual([tab1, tab2]);
       });
 
       it('should select the first one', function() {
