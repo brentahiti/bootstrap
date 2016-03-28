@@ -159,9 +159,11 @@ angular.module('ui.bootstrap.tabs', [])
     },
     controllerAs: 'tab',
     link: function(scope, elm, attrs, tabsetCtrl, transclude) {
+      var disableWatcher, indexWatcher;
+
       scope.disabled = false;
       if (attrs.disable) {
-        scope.$parent.$watch($parse(attrs.disable), function(value) {
+        disableWatcher = scope.$parent.$watch($parse(attrs.disable), function(value) {
           scope.disabled = !! value;
         });
       }
@@ -174,7 +176,7 @@ angular.module('ui.bootstrap.tabs', [])
         }
       } else {
         // watch when index is ng-repeat $index
-        scope.$parent.$watch($parse(attrs.index), function() {
+        indexWatcher = scope.$parent.$watch($parse(attrs.index), function() {
           tabsetCtrl.updateActiveIndex(scope);
         });
       }
@@ -192,6 +194,14 @@ angular.module('ui.bootstrap.tabs', [])
       tabsetCtrl.addTab(scope);
       scope.$on('$destroy', function() {
         tabsetCtrl.removeTab(scope);
+        if (disableWatcher) {
+          disableWatcher();
+          disableWatcher = null;
+        }
+        if (indexWatcher) {
+          indexWatcher();
+          indexWatcher = null;
+        }
       });
 
       //We need to transclude later, once the content container is ready.
